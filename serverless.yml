@@ -1,0 +1,173 @@
+service: test
+provider:
+  name: aws
+  runtime: nodejs10.x
+  region: ap-southeast-1
+  iamRoleStatements:
+   - Effect: "Allow"
+     Action:
+       - "s3:ListBucket"
+     Resource: { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "ServerlessDeploymentBucket" } ] ]  }
+   - Effect: Allow
+     Action:
+       - lambda:InvokeFunction
+       - lambda:CreateEventSourceMapping
+       - lambda:ListEventSourceMappings
+       - lambda:ListFunctions
+     Resource: arn:aws:lambda:*:*:function:*
+   - Effect: "Allow"
+     Action:
+       - "s3:PutObject"
+     Resource:
+       Fn::Join:
+         - ""
+         - - "arn:aws:s3:::"
+           - "Ref" : "ServerlessDeploymentBucket"
+           - "/*"
+   - Effect: Allow
+     Action:
+     - logs:CreateLogGroup
+     - logs:CreateLogStream
+     - logs:PutLogEvents
+     Resource: arn:aws:logs:ap-southeast-1:040109847816
+   - Effect: Allow
+     Action:
+     - dynamodb:DescribeStream
+     - dynamodb:GetRecords
+     - dynamodb:GetShardIterator
+     - dynamodb:ListStreams
+     Resource:
+       Fn::GetAtt:
+         - DynamoDBTable
+         - StreamArn
+   - Effect: Allow
+     Action:
+     - sqs:ReceiveMessage
+     - sqs:SendMessage
+     - sqs:DeleteMessage
+     - sqs:GetQueueAttributes
+     Resource: arn:aws:sqs:ap-southeast-1:040109847816:LeadQueue
+functions:
+  dynamodbStream:
+    handler: handler.handler
+    events:
+      - stream:
+          type: dynamodb
+          arn:
+            Fn::GetAtt: [ DynamoDBTable, StreamArn ]
+    Role:
+      Fn::GetAtt:
+        - "LambdaExecutionRole"
+        - "Arn"
+  getMessageFromQueue:
+    handler: getMessageFromQueue.handler
+    events:
+      - sqs: arn:aws:sqs:ap-southeast-1:040109847816:LeadQueue
+    Role:
+      Fn::GetAtt:
+        - "LambdaExecutionRole"
+        - "Arn"
+#AWS Resources
+resources:
+ Resources:
+   DynamoDBTable:
+     Type: AWS::DynamoDB::Table
+     Properties:
+       AttributeDefinitions:
+       - AttributeName: FirstName
+         AttributeType: S
+       - AttributeName: LastName
+         AttributeType: S
+       - AttributeName: PhoneNumber
+         AttributeType: S
+       KeySchema:
+       - AttributeName: FirstName
+         KeyType: HASH
+       - AttributeName: LastName
+         KeyType: RANGE
+       GlobalSecondaryIndexes:
+       - IndexName: GSI
+         KeySchema:
+         - AttributeName: PhoneNumber
+           KeyType: HASH
+         Projection:
+           ProjectionType: KEYS_ONLY
+         ProvisionedThroughput:
+           ReadCapacityUnits: 5
+           WriteCapacityUnits: 5
+       StreamSpecification:
+         StreamViewType: NEW_AND_OLD_IMAGES
+       ProvisionedThroughput:
+         ReadCapacityUnits: 5
+         WriteCapacityUnits: 5
+       TableName: LeadsTable
+   SNSTopic:
+     Type: AWS::SNS::Topic
+     Properties:
+       Subscription:
+        - Endpoint:
+            Fn::GetAtt:
+              - SQSQueue
+              - Arn
+          Protocol: sqs
+       TopicName: "FailedQueue"
+   SNSSubscription:
+     Type: AWS::SNS::Subscription
+     Properties:
+         Endpoint: joussyd.calupig@novare.com.hk
+         Protocol: email
+         TopicArn: arn:aws:sns:ap-southeast-1:040109847816:FailedQueue
+   SQSQueue:
+     Type: AWS::SQS::Queue
+     Properties:
+       QueueName: LeadQueue
+   LambdaExecutionRole:
+     Type: AWS::IAM::Role
+     Properties:
+       AssumeRolePolicyDocument:
+         Version: '2012-10-17'
+         Statement:
+         - Effect: Allow
+           Principal:
+             Service:
+             - lambda.amazonaws.com
+           Action:
+           - sts:AssumeRole
+       Path: "/service-role/"
+       Policies:
+       - PolicyName: LeadLambdaRolePolicy
+         PolicyDocument:
+           Version: '2012-10-17'
+           Statement:
+           - Effect: Allow
+             Action:
+             - lambda:InvokeFunction
+             - lambda:CreateEventSourceMapping
+             - lambda:ListEventSourceMappings
+             - lambda:ListFunctions
+             Resource: arn:aws:lambda:ap-southeast-1:040109847816:function:*
+           - Effect: Allow
+             Action:
+             - logs:CreateLogGroup
+             - logs:CreateLogStream
+             - logs:PutLogEvents
+             Resource: arn:aws:logs:ap-southeast-1:040109847816
+           - Effect: Allow
+             Action:
+             - dynamodb:DescribeStream
+             - dynamodb:GetRecords
+             - dynamodb:GetShardIterator
+             - dynamodb:ListStreams
+             Resource: arn:aws:dynamodb:ap-southeast-1:040109847816:table/LeadsTable/stream/*
+           - Effect: Allow
+             Action:
+             - sns:*
+             Resource: "*"
+           - Effect: Allow
+             Action:
+               - sqs:DeleteMessage
+               - sqs:SendMessage
+               - sqs:ReceiveMessage
+               - sqs:ChangeMessageVisibility
+               - sqs:GetQueueAttributes
+             Resource: arn:aws:sqs:ap-southeast-1:040109847816:LeadQueue
