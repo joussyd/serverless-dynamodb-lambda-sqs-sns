@@ -114,7 +114,7 @@ resources:
    SNSSubscription:
      Type: AWS::SNS::Subscription
      Properties:
-         Endpoint: joussyd.calupig@novare.com.hk
+         Endpoint: joussyd@mailinator.com
          Protocol: email
          TopicArn: arn:aws:sns:ap-southeast-1:040109847816:FailedQueue
    SQSQueue:
