@@ -7,13 +7,13 @@ var sqs = new AWS.SQS({
 
 
 exports.handler = (event, context, callback) => {
-    const queueUrl = 'https://sqs.ap-southeast-1.amazonaws.com/040109847816/LeadQueue';
+    const queueUrl = 'https://sqs.ap-southeast-1.amazonaws.com/609880500672/LeadQueue';
     var responseCode = 200;
     var responseBody = {};
     event.Records.forEach((record) => {
         const { body } = record;
         console.log('Stream record: ', JSON.stringify(record, null, 2));
-        console.log(body);
+        console.log(JSON.stringify(body));
 
         if (record.eventName == 'INSERT') {
             var firstname = JSON.stringify(record.dynamodb.NewImage.FirstName.S);

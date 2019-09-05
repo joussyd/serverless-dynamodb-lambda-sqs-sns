@@ -7,7 +7,7 @@ var sqs = new AWS.SQS({
 });
 
 exports.handler = (event, context, callback) => {
-    const queueUrl = 'https://sqs.ap-southeast-1.amazonaws.com/040109847816/LeadQueue';
+    const queueUrl = 'https://sqs.ap-southeast-1.amazonaws.com/609880500672/LeadQueue';
     const crmApi   = 'http://5d6114f1c2ca490014b273cf.mockapi.io';
     const apiPath  = '/api/v1/user';
     var responseBody = {};
@@ -54,6 +54,7 @@ exports.handler = (event, context, callback) => {
               body: JSON.stringify(responseBody)
           };
 
+          //callback
           callback(null, response);
 
           var firstname = JSON.stringify(event.firstname);
@@ -62,9 +63,10 @@ exports.handler = (event, context, callback) => {
           var params = {
               Subject: 'Failed Attempt',
               Message: firstname + ' ' + lastname + ' with the phone number' + phonenumber + ' failed saving to CRM',
-              TopicArn: 'arn:aws:sns:ap-southeast-1:040109847816:FailedQueue'
+              TopicArn: 'arn:aws:sns:ap-southeast-1:609880500672:FailedQueue'
           };
 
+          //publish
           sns.publish(params, function(err, data) {
               if (err) {
                   console.error("Unable to send message. Error JSON:", JSON.stringify(err, null, 2));
